@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 from datetime import date
 from html import escape
 
@@ -55,6 +56,13 @@ border-bottom:2px solid transparent}
 .num-badge{display:inline-grid;place-items:center;min-width:26px;height:26px;border-radius:50%;background:var(--chip);
 font-size:13px;font-weight:600;margin-right:8px}
 .theme-head h3{display:flex;align-items:center}
+.line{display:inline-flex;flex-wrap:wrap;gap:3px 4px;align-items:center;vertical-align:middle}
+.mn{color:var(--muted);font:12px ui-monospace,Consolas,monospace}
+.step{font:13px ui-monospace,Consolas,monospace;color:var(--ink);background:var(--chip);border:1px solid transparent;
+border-radius:5px;padding:1px 6px;cursor:pointer}
+.step:hover{border-color:var(--line)}
+.step.on{border-color:var(--accent);background:color-mix(in srgb,var(--accent) 18%,var(--chip))}
+.replay{font:inherit;background:none;border:0;padding:0;cursor:pointer;text-decoration:underline dotted;text-underline-offset:3px}
 """
 
 TOC_SCRIPT = """<script>
@@ -68,6 +76,73 @@ TOC_SCRIPT = """<script>
     });
   }, {rootMargin: '-70px 0px -70% 0px'});
   targets.forEach(t => obs.observe(t));
+})();
+</script>"""
+
+STEP_SCRIPT = """<script>
+(() => {
+  const SQ = 45, NS = 'http://www.w3.org/2000/svg';
+  const NAMES = {p: 'pawn', n: 'knight', b: 'bishop', r: 'rook', q: 'queen', k: 'king'};
+  const el = (tag, attrs) => {
+    const n = document.createElementNS(NS, tag);
+    for (const k in attrs) n.setAttribute(k, attrs[k]);
+    return n;
+  };
+  const xy = (sq, flip) => {
+    const f = sq.charCodeAt(0) - 97, r = +sq[1] - 1;
+    return flip ? [(7 - f) * SQ, r * SQ] : [f * SQ, (7 - r) * SQ];
+  };
+  let current = null;
+
+  function show(btn) {
+    const ex = btn.closest('.example'), board = ex.querySelector('.board');
+    if (!board.dataset.orig) board.dataset.orig = board.innerHTML;
+    ex.querySelectorAll('.step.on').forEach(b => b.classList.remove('on'));
+    current = btn;
+    if (!btn.classList.contains('step')) { board.innerHTML = board.dataset.orig; return; }
+    btn.classList.add('on');
+    const flip = board.dataset.flip === '1';
+    board.innerHTML = board.dataset.orig;
+    const svg = board.querySelector('svg');
+    svg.querySelectorAll('use, g, .dyn').forEach(n => n.remove());
+    const bg = svg.querySelector('rect');
+    const mark = (sq, fill, op) => {
+      const [x, y] = xy(sq, flip);
+      bg.after(el('rect', {x, y, width: SQ, height: SQ, fill, opacity: op}));
+    };
+    const uci = btn.dataset.uci;
+    mark(uci.slice(0, 2), '#f6e05e', .45);
+    mark(uci.slice(2, 4), '#f6e05e', .55);
+    if (btn.dataset.check) mark(btn.dataset.check, '#e5484d', .55);
+    btn.dataset.fen.split(' ')[0].split('/').forEach((row, i) => {
+      let f = 0;
+      for (const c of row) {
+        if (/\\d/.test(c)) { f += +c; continue; }
+        const [x, y] = xy(String.fromCharCode(97 + f) + (8 - i), flip);
+        const color = c === c.toUpperCase() ? 'white' : 'black';
+        svg.append(el('use', {href: `#${color}-${NAMES[c.toLowerCase()]}`, x, y}));
+        f++;
+      }
+    });
+  }
+
+  document.addEventListener('click', e => {
+    const btn = e.target.closest('.step, .replay');
+    if (btn) show(btn);
+  });
+  document.addEventListener('keydown', e => {
+    if (!current || !['ArrowLeft', 'ArrowRight'].includes(e.key)) return;
+    const ex = current.closest('.example');
+    if (current.classList.contains('replay')) {
+      const first = ex.querySelector('.line .step');
+      if (e.key === 'ArrowRight' && first) { e.preventDefault(); show(first); }
+      return;
+    }
+    const steps = [...current.closest('.line').querySelectorAll('.step')];
+    const i = steps.indexOf(current) + (e.key === 'ArrowRight' ? 1 : -1);
+    e.preventDefault();
+    show(i < 0 ? ex.querySelector('.replay') : steps[Math.min(i, steps.length - 1)]);
+  });
 })();
 </script>"""
 
@@ -119,7 +194,7 @@ def _board_svg(e: dict, color: str) -> str:
     ]
     if board.is_check():
         x, y = _xy(board.king(board.turn), flip)
-        parts.append(f'<rect x="{x}" y="{y}" width="{SQ}" height="{SQ}" fill="#e5484d" opacity=".55"/>')
+        parts.append(f'<rect class="dyn" x="{x}" y="{y}" width="{SQ}" height="{SQ}" fill="#e5484d" opacity=".55"/>')
     for i in range(8):
         file_label = chess.FILE_NAMES[7 - i if flip else i]
         rank_label = chess.RANK_NAMES[i if flip else 7 - i]
@@ -141,26 +216,51 @@ def _opponent(g: dict, public: bool) -> str:
     return f"Opponent ({rating})" if public else f"{g['opponent']} ({rating})"
 
 
+def _line(board: chess.Board, san_line: str) -> str:
+    """Turn a SAN line into buttons that carry the position after each move."""
+    board = board.copy(stack=False)
+    out = []
+    tokens = re.sub(r"(\d+\.+)", r"\1 ", san_line).split()
+    for i, tok in enumerate(tokens):
+        if tok.rstrip(".").isdigit():
+            out.append(f'<span class="mn">{escape(tok)}</span>')
+            continue
+        try:
+            move = board.push_san(tok)
+        except ValueError:
+            out.append(f'<code>{escape(" ".join(tokens[i:]))}</code>')
+            break
+        check = f' data-check="{chess.square_name(board.king(board.turn))}"' if board.is_check() else ""
+        out.append(
+            f'<button type="button" class="step" data-fen="{escape(board.fen())}" '
+            f'data-uci="{move.uci()}"{check}>{escape(tok)}</button>'
+        )
+    return f'<span class="line">{"".join(out)}</span>'
+
+
 def _example(g: dict, e: dict, comment: str, public: bool) -> str:
     dots = "." if g["color"] == "white" else "..."
     analysis = "https://lichess.org/analysis/" + e["fen"].replace(" ", "_")
     clock = f" · {e['clock']:.0f}s left" if e["clock"] is not None else ""
     tags = "".join(f'<span class="tag">{escape(TAG_LABELS.get(t, t))}</span>' for t in e["tags"])
+    start = chess.Board(e["fen"])
+    after = start.copy(stack=False)
+    after.push(chess.Move.from_uci(e["played_uci"]))
     best = (
         f'Best was <span class="move good">{escape(e["best_san"])}</span>'
-        f'<div class="muted"><code>{escape(e["best_line"])}</code></div>'
+        f'<div>{_line(start, e["best_line"])}</div>'
         if e["best_san"]
         else ""
     )
     refutation = (
-        f'<div>Punishment: <code>{escape(e["refutation"])}</code></div>' if e["refutation"] else ""
+        f'<div style="margin-top:6px">Punishment: {_line(after, e["refutation"])}</div>' if e["refutation"] else ""
     )
     return f"""
 <div class="example">
-  <div class="board">{_board_svg(e, g["color"])}</div>
+  <div class="board" data-flip="{int(g['color'] == 'black')}">{_board_svg(e, g["color"])}</div>
   <div>
     <div><span class="kind-{e['kind']}">{e['kind'].capitalize()}</span> · {escape(e['phase'])}{clock}</div>
-    <h3>{e['move_no']}{dots} <span class="move bad">{escape(e['played_san'])}</span>
+    <h3>{e['move_no']}{dots} <button type="button" class="replay move bad" title="Back to the position">{escape(e['played_san'])}</button>
       <span class="muted">({escape(e['eval_before'])} → {escape(e['eval_after'])})</span></h3>
     {best}
     {refutation}
@@ -303,6 +403,7 @@ def render(username: str, results: list[dict], stats: dict, review: dict, public
 <section class="card"><div class="table-wrap"><table><thead><tr><th>Date</th><th>Type</th><th>Color</th><th>Opponent</th>
 <th>Result</th><th class="num">Acc.</th><th class="num">Errors</th><th></th></tr></thead><tbody>{game_rows}</tbody></table></div></section>
 <p class="muted" style="font-size:13px">*Accuracy uses the Lichess win-chance formula on Stockfish evaluations, so it
-will differ from chess.com's CAPS score. Red arrow = your move, green arrow = engine's best move.</p>
+will differ from chess.com's CAPS score. Red arrow = your move, green arrow = engine's best move.
+Click any move in a line to see that position (← → step through it); click your move to go back.</p>
 <p class="muted" style="font-size:13px">{DISCLAIMER}</p>
-</main>{TOC_SCRIPT}</body></html>"""
+</main>{TOC_SCRIPT}{STEP_SCRIPT}</body></html>"""
