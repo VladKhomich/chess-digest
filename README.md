@@ -3,7 +3,7 @@
 chess-digest reviews your recent chess.com games. It downloads them, runs Stockfish on every move, asks Claude which
 mistakes you keep repeating, and writes a short HTML report with board diagrams and links to practice material.
 
-Project page: https://vladkhomich.github.io/chess-digest/
+Project page: https://chess.ulad.net
 
 ## Setup
 
