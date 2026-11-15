@@ -39,7 +39,37 @@ th,td{text-align:left;padding:7px 8px;border-bottom:1px solid var(--line)}th{col
 td.num,th.num{text-align:right;font-variant-numeric:tabular-nums}
 .table-wrap{overflow-x:auto}
 ul.plain{padding-left:18px;margin:6px 0}
+html{scroll-behavior:smooth}
+[id]{scroll-margin-top:64px}
+.toc{position:sticky;top:0;z-index:5;background:color-mix(in srgb,var(--bg) 88%,transparent);backdrop-filter:blur(8px);
+border-bottom:1px solid var(--line)}
+.toc ul{max-width:980px;margin:0 auto;padding:0 16px;display:flex;gap:4px;list-style:none;overflow-x:auto;scrollbar-width:none}
+.toc a{display:block;white-space:nowrap;padding:12px 10px;font-size:14px;color:var(--muted);text-decoration:none;
+border-bottom:2px solid transparent}
+.toc a:hover{color:var(--ink)}.toc a.active{color:var(--ink);border-bottom-color:var(--accent)}
+.glance{border-left:4px solid var(--accent)}
+.glance p{margin:0 0 12px}
+.glance ol{margin:0;padding-left:22px}.glance li{margin:6px 0}
+.glance li a{font-weight:600;text-decoration:none}.glance li span{color:var(--muted);font-size:13px}
+.glance .start{margin:14px 0 0;padding-top:12px;border-top:1px solid var(--line)}
+.num-badge{display:inline-grid;place-items:center;min-width:26px;height:26px;border-radius:50%;background:var(--chip);
+font-size:13px;font-weight:600;margin-right:8px}
+.theme-head h3{display:flex;align-items:center}
 """
+
+TOC_SCRIPT = """<script>
+(() => {
+  const links = [...document.querySelectorAll('.toc a')];
+  const targets = links.map(a => document.querySelector(a.getAttribute('href'))).filter(Boolean);
+  const obs = new IntersectionObserver(entries => {
+    entries.forEach(e => {
+      if (!e.isIntersecting) return;
+      links.forEach(a => a.classList.toggle('active', a.getAttribute('href') === '#' + e.target.id));
+    });
+  }, {rootMargin: '-70px 0px -70% 0px'});
+  targets.forEach(t => obs.observe(t));
+})();
+</script>"""
 
 
 SQ = 45  # python-chess piece drawings are 45x45
@@ -144,7 +174,7 @@ def _example(g: dict, e: dict, comment: str, public: bool) -> str:
 </div>"""
 
 
-def _theme_card(t: dict, index: dict, public: bool) -> str:
+def _theme_card(n: int, t: dict, index: dict, public: bool) -> str:
     meta = THEMES[t["theme_id"]]
     links = "".join(f'<li><a href="{escape(u)}">{escape(label)}</a></li>' for label, u in meta["links"])
     drills = "".join(f"<li>{escape(d)}</li>" for d in t.get("drills", []))
@@ -153,8 +183,9 @@ def _theme_card(t: dict, index: dict, public: bool) -> str:
     )
     diagnosis = f"<p>{escape(t['diagnosis'])}</p>" if t.get("diagnosis") else ""
     return f"""
-<section class="card">
-  <div class="theme-head"><h3>{escape(t['title'])}</h3><span class="freq">{escape(t['frequency'])}</span></div>
+<section class="card" id="problem-{n}">
+  <div class="theme-head"><h3><span class="num-badge">{n}</span>{escape(t['title'])}</h3>
+    <span class="freq">{escape(t['frequency'])}</span></div>
   {diagnosis}
   <p><b>How to fix:</b> {escape(t['how_to_fix'])}</p>
   {f'<ul class="plain">{drills}</ul>' if drills else ''}
@@ -182,22 +213,42 @@ def render(username: str, results: list[dict], stats: dict, review: dict, public
     ]
     kpi_html = "".join(f'<div class="kpi"><b>{escape(str(v))}</b><span>{escape(k)}</span></div>' for v, k in kpis)
 
-    summary = f'<section class="card"><p>{escape(review["summary"])}</p></section>' if review.get("summary") else ""
+    shown = [t for t in review["themes"] if t["theme_id"] in THEMES]
+    themes = "".join(_theme_card(n, t, index, public) for n, t in enumerate(shown, 1))
+    problem_list = "".join(
+        f'<li><a href="#problem-{n}">{escape(t["title"])}</a> <span>{escape(t["frequency"])}</span></li>'
+        for n, t in enumerate(shown, 1)
+    )
+    start = (
+        f'<p class="start"><b>Start with:</b> {escape(review["training_plan"][0])}</p>'
+        if review.get("training_plan")
+        else ""
+    )
+    summary_text = f'<p>{escape(review["summary"])}</p>' if review.get("summary") else ""
+    glance = (
+        f'<h2 id="summary">At a glance</h2><section class="card glance">{summary_text}'
+        f'{f"<ol>{problem_list}</ol>" if problem_list else ""}{start}</section>'
+        if summary_text or problem_list
+        else ""
+    )
     strengths = (
-        '<h2>What you do well</h2><section class="card"><ul class="plain">'
+        '<h2 id="strengths">What you do well</h2><section class="card"><ul class="plain">'
         + "".join(f"<li>{escape(s)}</li>" for s in review["strengths"])
         + "</ul></section>"
         if review.get("strengths")
         else ""
     )
-    themes = "".join(_theme_card(t, index, public) for t in review["themes"] if t["theme_id"] in THEMES)
     plan = (
-        '<h2>Training plan</h2><section class="card"><ol>'
+        '<h2 id="plan">Training plan</h2><section class="card"><ol>'
         + "".join(f"<li>{escape(s)}</li>" for s in review["training_plan"])
         + "</ol></section>"
         if review.get("training_plan")
         else ""
     )
+    nav_items = [("summary", "Summary", glance), ("problems", "Problems", True), ("strengths", "Strengths", strengths),
+                 ("plan", "Training plan", plan), ("stats", "Statistics", True), ("openings", "Openings", True),
+                 ("games", "Games", True)]
+    toc = "".join(f'<li><a href="#{i}">{label}</a></li>' for i, label, present in nav_items if present)
 
     phase_rows = "".join(
         f'<tr><td>{escape(p)}</td><td class="num">{stats["phases"].get(p, 0)}</td></tr>'
@@ -229,25 +280,29 @@ def render(username: str, results: list[dict], stats: dict, review: dict, public
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 {'<meta name="robots" content="noindex">' if public else ''}
 <title>Chess digest: {escape(username)}</title><style>{CSS}</style></head>
-<body>{BOARD_DEFS}<main>
+<body>{BOARD_DEFS}
+<nav class="toc" aria-label="Sections"><ul>{toc}</ul></nav>
+<main>
 <h1>Chess digest for {escape(username)}</h1>
 <div class="muted">{date.today().isoformat()} · last {stats['games']} games · {by}</div>
 <div class="kpis">{kpi_html}</div>
-{summary}
-<h2>Recurring problems</h2>
+{glance}
+<h2 id="problems">Recurring problems</h2>
 {themes or '<p class="muted">No recurring problems found.</p>'}
 {strengths}
 {plan}
-<h2>Statistics</h2>
+<h2 id="stats">Statistics</h2>
 <section class="card"><div class="table-wrap">
 <table><thead><tr><th>Mistakes + blunders by phase</th><th class="num">count</th></tr></thead><tbody>{phase_rows}</tbody></table>
 <br><table><thead><tr><th>Engine-detected pattern</th><th class="num">count</th></tr></thead><tbody>{tag_rows}</tbody></table>
 </div></section>
+<h2 id="openings">Openings</h2>
 <section class="card"><div class="table-wrap"><table><thead><tr><th>Opening</th><th class="num">games</th>
 <th class="num">score</th><th class="num">errors/game</th></tr></thead><tbody>{open_rows}</tbody></table></div></section>
+<h2 id="games">Games</h2>
 <section class="card"><div class="table-wrap"><table><thead><tr><th>Date</th><th>Type</th><th>Color</th><th>Opponent</th>
 <th>Result</th><th class="num">Acc.</th><th class="num">Errors</th><th></th></tr></thead><tbody>{game_rows}</tbody></table></div></section>
 <p class="muted" style="font-size:13px">*Accuracy uses the Lichess win-chance formula on Stockfish evaluations, so it
 will differ from chess.com's CAPS score. Red arrow = your move, green arrow = engine's best move.</p>
 <p class="muted" style="font-size:13px">{DISCLAIMER}</p>
-</main></body></html>"""
+</main>{TOC_SCRIPT}</body></html>"""
