@@ -1,0 +1,81 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>chess-digest</title>
+<meta name="description" content="Review your recent chess.com games with Stockfish and Claude, and get a report on the mistakes you keep making.">
+<style>
+:root{--bg:#f7f6f3;--card:#fff;--ink:#1d1d1f;--muted:#6b6b70;--line:#e3e1dc;--accent:#2f6f4f;--code:#efede8}
+@media (prefers-color-scheme:dark){:root{--bg:#141416;--card:#1d1d20;--ink:#ececee;--muted:#9a9aa1;--line:#2c2c31;--accent:#5fbf8d;--code:#2a2a2f}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.6 system-ui,-apple-system,"Segoe UI",sans-serif}
+main{max-width:760px;margin:0 auto;padding:48px 16px 72px}
+h1{font-size:34px;margin:0 0 8px}
+h2{font-size:21px;margin:44px 0 10px}
+p.lead{font-size:18px;color:var(--muted);margin:0 0 20px}
+a{color:var(--accent)}
+.buttons{display:flex;gap:10px;flex-wrap:wrap;margin:22px 0}
+.buttons a{border:1px solid var(--line);background:var(--card);border-radius:8px;padding:8px 16px;text-decoration:none;font-weight:600}
+code{font-family:ui-monospace,Consolas,monospace;font-size:14px;background:var(--code);border-radius:4px;padding:1px 5px}
+pre{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:14px 16px;overflow-x:auto}
+pre code{background:none;padding:0}
+ol li,ul li{margin:6px 0}
+footer{margin-top:56px;color:var(--muted);font-size:14px;border-top:1px solid var(--line);padding-top:16px}
+</style>
+</head>
+<body>
+<main>
+<h1>chess-digest</h1>
+<p class="lead">chess-digest reviews your recent chess.com games. It downloads them, runs Stockfish on every move,
+asks Claude which mistakes you keep repeating, and writes a short report with board diagrams and links to practice material.</p>
+<div class="buttons">
+  <a href="digests/">Example digests</a>
+  <a href="https://github.com/VladKhomich/chess-digest">Source on GitHub</a>
+</div>
+
+<h2>What you get</h2>
+<ul>
+  <li>Your record, accuracy and blunders per game.</li>
+  <li>Three to five recurring problems. Each one has an explanation, a way to fix it, and positions from your own games.</li>
+  <li>Puzzles and articles for each problem: Lichess puzzle themes, Lichess practice, Wikipedia.</li>
+  <li>Tables of your openings and of mistakes by game phase, plus every game with a link back to chess.com.</li>
+</ul>
+
+<h2>How it works</h2>
+<ol>
+  <li>Games come from the chess.com Published-Data API. You don't need to log in.</li>
+  <li>Stockfish evaluates every position. A move counts as a mistake when your winning chances drop by 20 points, and as a blunder at 30.</li>
+  <li>The worst mistakes and your stats go to Claude in one request. Claude can only choose from a fixed list of themes and from mistakes that really happened, so it can't make up positions or links.</li>
+  <li>The report is a single HTML file. Each board is an inline SVG of about 2 KB.</li>
+</ol>
+
+<h2>Set it up</h2>
+<p>You need Docker Desktop, git and an <a href="https://console.anthropic.com/">Anthropic API key</a>.</p>
+<pre><code>git clone https://github.com/VladKhomich/chess-digest.git
+cd chess-digest
+cp .env.example .env        # add ANTHROPIC_API_KEY and CHESSCOM_USER
+docker compose build
+docker compose run --rm digest --games 30</code></pre>
+<p>The report lands in <code>out/</code>. On Windows you can load <code>chess.ps1</code> from your PowerShell profile
+and use shorter commands:</p>
+<pre><code>. "C:\path\to\chess-digest\chess.ps1"   # in $PROFILE
+
+chess analyse -g 10      # last 10 games
+chess analyse --week     # everything from the last 7 days
+chess open               # reopen the latest report</code></pre>
+<p>A game that went into an earlier report is skipped next time. Add <code>--all</code> to include it again.</p>
+
+<h2>Publish your own reports</h2>
+<p>Fork the repo and turn on GitHub Pages for the <code>docs</code> folder of <code>main</code>. Then run
+<code>chess analyse --week --publish</code>. It adds the report to <code>docs/digests/</code>, commits only that folder
+and pushes. Published pages hide your opponents' usernames and ask search engines not to index them.</p>
+
+<h2>Cost</h2>
+<p>Stockfish runs on your machine. Each report makes one Claude Sonnet call. That's usually a few cents, and a week
+of games rarely goes past 25 cents.</p>
+
+<footer>Not affiliated with or endorsed by Chess.com. Game data comes from the Chess.com Published-Data API.</footer>
+</main>
+</body>
+</html>

@@ -1,0 +1,82 @@
+# Load it from your PowerShell profile:  . "<path to repo>\chess.ps1"
+
+$script:ChessDigestDir = $PSScriptRoot
+
+function Invoke-ChessDigest {
+    docker compose -f (Join-Path $script:ChessDigestDir 'docker-compose.yml') run --rm digest @args | Out-Host
+    return $LASTEXITCODE -eq 0
+}
+
+function Get-LatestDigest([datetime]$After = [datetime]::MinValue) {
+    Get-ChildItem (Join-Path $script:ChessDigestDir 'out') -Filter 'digest-*.html' -ErrorAction SilentlyContinue |
+        Where-Object LastWriteTime -ge $After | Sort-Object LastWriteTime | Select-Object -Last 1
+}
+
+function Push-ChessDigests {
+    $repo = $script:ChessDigestDir
+    git -C $repo add docs/digests
+    git -C $repo diff --cached --quiet -- docs/digests
+    if ($LASTEXITCODE -eq 0) {
+        Write-Host 'Nothing new to publish.'
+        return
+    }
+    git -C $repo commit -m "docs(digests): publish digest $(Get-Date -Format yyyy-MM-dd)" -- docs/digests
+    if ($LASTEXITCODE -eq 0) { git -C $repo push origin HEAD }
+}
+
+function chess {
+    $cmd, $rest = $args
+
+    switch -Regex ($cmd) {
+        '^(analyse|analyze|a)$' {
+            $pass = [System.Collections.Generic.List[string]]::new()
+            $open = $true
+            $publish = $false
+            for ($i = 0; $i -lt $rest.Count; $i++) {
+                $t = [string]$rest[$i]
+                switch -Regex ($t) {
+                    '^(-g|--games)$'       { $pass.Add('--games'); $pass.Add([string]$rest[++$i]) }
+                    '^(-w|--week)$'        { $pass.Add('--since-days'); $pass.Add('7') }
+                    '^(-m|--month)$'       { $pass.Add('--since-days'); $pass.Add('30') }
+                    '^(-d|--days)$'        { $pass.Add('--since-days'); $pass.Add([string]$rest[++$i]) }
+                    '^(-u|--user)$'        { $pass.Add('--user'); $pass.Add([string]$rest[++$i]) }
+                    '^(-t|--time-class)$'  { $pass.Add('--time-class'); $pass.Add([string]$rest[++$i]) }
+                    '^(-a|--all)$'         { $pass.Add('--all') }
+                    '^(-p|--publish)$'     { $pass.Add('--publish'); $publish = $true }
+                    '^--no-open$'          { $open = $false }
+                    default                { $pass.Add($t) }
+                }
+            }
+            $started = Get-Date
+            if (-not (Invoke-ChessDigest @pass)) { return }
+            $latest = Get-LatestDigest $started
+            if ($open -and $latest) { Start-Process $latest.FullName }
+            if ($publish -and $latest) { Push-ChessDigests }
+        }
+        '^publish$' {
+            if (Invoke-ChessDigest '--publish-last') { Push-ChessDigests }
+        }
+        '^open$' {
+            $latest = Get-LatestDigest
+            if ($latest) { Start-Process $latest.FullName } else { Write-Host 'No digest yet. Run: chess analyse' }
+        }
+        '^build$' { docker compose -f (Join-Path $script:ChessDigestDir 'docker-compose.yml') build }
+        default {
+            Write-Host @'
+Usage:
+  chess analyse [-g N] [--week | --month | -d DAYS] [-t blitz] [-u USER] [--all] [--publish]
+                [--no-ai] [--no-open] [--depth N]
+  chess publish   publish the last analysis to GitHub Pages (no new analysis, no AI cost)
+  chess open      open the latest local digest
+  chess build     rebuild the Docker image after code changes
+
+Games covered by an earlier digest are skipped; --all includes them again.
+
+Examples:
+  chess analyse -g 10
+  chess analyse --week --publish
+  chess analyse --month -t rapid
+'@
+        }
+    }
+}
