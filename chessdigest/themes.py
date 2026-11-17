@@ -173,7 +173,6 @@ TAG_THEME = {
     "allowed_mate": "king_safety",
     "back_rank": "back_rank",
     "missed_tactic": "missed_tactics",
-    "time_trouble": "time_management",
 }
 PHASE_THEME = {"opening": "opening_principles", "endgame": "endgame_technique"}
 
@@ -185,5 +184,5 @@ TAG_LABELS = {
     "allowed_mate": "allowed mate",
     "back_rank": "back-rank",
     "missed_tactic": "missed tactic",
-    "time_trouble": "low on time",
+    "low_clock": "under 10% clock",
 }

@@ -5,11 +5,11 @@ import json
 import os
 import sys
 import time
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 
 from .analyze import analyze_games
-from .coach import SERIOUS, aggregate, ai_review, heuristic_review
+from .coach import SERIOUS, aggregate, ai_review, heuristic_review, history_entries
 from .fetch import FetchError, fetch_recent_games
 from .report import render
 from .seen import add_seen, load_seen
@@ -32,11 +32,23 @@ def check_links() -> int:
     return 1 if bad else 0
 
 
+def _since(value: str) -> float:
+    return datetime.fromisoformat(value).replace(tzinfo=timezone.utc).timestamp()
+
+
+def _until(value: str) -> float:
+    """A bare date means the end of that day."""
+    ts = _since(value)
+    return ts + 86400 - 1 if len(value) == 10 else ts
+
+
 def parse_args(argv: list[str] | None) -> argparse.Namespace:
     p = argparse.ArgumentParser(prog="chessdigest", description="Review your recent chess.com games")
     p.add_argument("--user", default=os.environ.get("CHESSCOM_USER"), help="chess.com username (or CHESSCOM_USER)")
     p.add_argument("--games", type=int, help="number of games (default 30, or up to 200 with --since-days)")
     p.add_argument("--since-days", type=float, help="only games from the last N days")
+    p.add_argument("--since", type=_since, help="only games that ended at or after this time (YYYY-MM-DD[THH:MM], UTC)")
+    p.add_argument("--until", type=_until, help="only games that ended up to this time; a bare date means end of day")
     p.add_argument("--time-class", action="append", choices=["bullet", "blitz", "rapid", "daily"],
                    help="only these time classes (repeatable)")
     p.add_argument("--rated-only", action="store_true")
@@ -54,7 +66,22 @@ def parse_args(argv: list[str] | None) -> argparse.Namespace:
     return p.parse_args(argv)
 
 
-def run_review(a: argparse.Namespace, results: list[dict], stats: dict) -> dict:
+def load_history(path: Path, stats: dict) -> list[dict]:
+    """Rows from sessions that ended before this one started."""
+    if not path.exists() or not stats["from"]:
+        return []
+    rows = json.loads(path.read_text(encoding="utf-8"))
+    return [r for r in rows if r["to"] < stats["from"]][-8:]
+
+
+def save_history(path: Path, rows: list[dict]) -> None:
+    old = json.loads(path.read_text(encoding="utf-8")) if path.exists() else []
+    keys = {(r["from"], r["to"], r["time_class"]) for r in rows}
+    kept = [r for r in old if (r["from"], r["to"], r["time_class"]) not in keys]
+    path.write_text(json.dumps(sorted(kept + rows, key=lambda r: r["to"]), indent=1), encoding="utf-8")
+
+
+def run_review(a: argparse.Namespace, results: list[dict], stats: dict, history: list[dict]) -> dict:
     if a.no_ai:
         return heuristic_review(results, stats)
     if not (os.environ.get("ANTHROPIC_API_KEY") or os.environ.get("ANTHROPIC_AUTH_TOKEN")):
@@ -65,7 +92,7 @@ def run_review(a: argparse.Namespace, results: list[dict], stats: dict) -> dict:
 
     print(f"Asking {a.model} for a review...")
     try:
-        return ai_review(results, stats, a.model)
+        return ai_review(results, stats, a.model, history)
     except (anthropic.APIError, RuntimeError, ValueError) as e:
         print(f"AI review failed ({e}), using engine tags only.", file=sys.stderr)
         return heuristic_review(results, stats)
@@ -95,16 +122,16 @@ def main(argv: list[str] | None = None) -> int:
         return 2
 
     if a.games is None:
-        a.games = 200 if a.since_days else 30
-    since = time.time() - a.since_days * 86400 if a.since_days else None
+        a.games = 200 if (a.since_days or a.since) else 30
+    since = time.time() - a.since_days * 86400 if a.since_days else a.since
     seen_path = out / "seen.json"
     skip = set() if a.all else load_seen(seen_path, a.user)
 
-    window = f" from the last {a.since_days:g} days" if since else ""
+    window = f" from the last {a.since_days:g} days" if a.since_days else " in the given period" if since else ""
     print(f"Fetching up to {a.games} games of {a.user}{window}...")
     try:
         games, skipped = fetch_recent_games(
-            a.user, a.games, set(a.time_class or []), a.rated_only, since, skip
+            a.user, a.games, set(a.time_class or []), a.rated_only, since, skip, a.until
         )
     except FetchError as e:
         print(e, file=sys.stderr)
@@ -124,7 +151,9 @@ def main(argv: list[str] | None = None) -> int:
 
     results = analyze_games(games, a.user, a.depth, out / "cache", a.workers, progress)
     stats = aggregate(results)
-    review = run_review(a, results, stats)
+    history_path = out / "history.json"
+    review = run_review(a, results, stats, load_history(history_path, stats))
+    save_history(history_path, history_entries(stats))
 
     suffix = "" if review.get("model") else "-engine"
     path = out / f"digest-{a.user.lower()}-{datetime.now():%Y%m%d-%H%M%S}{suffix}.html"

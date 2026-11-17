@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import re
-from datetime import date
+from datetime import datetime
 from html import escape
 
 import chess
@@ -10,52 +10,68 @@ import chess.svg
 from .coach import SERIOUS, error_id
 from .themes import TAG_LABELS, THEMES
 
+FONTS = (
+    '<link rel="preconnect" href="https://fonts.googleapis.com">'
+    '<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>'
+    '<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600'
+    '&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">'
+)
+
 CSS = """
-:root{--bg:#f7f6f3;--card:#fff;--ink:#1d1d1f;--muted:#6b6b70;--line:#e3e1dc;--accent:#2f6f4f;
---bad:#c4363a;--warn:#b7791f;--chip:#efede8}
-@media (prefers-color-scheme:dark){:root{--bg:#141416;--card:#1d1d20;--ink:#ececee;--muted:#9a9aa1;
---line:#2c2c31;--accent:#5fbf8d;--bad:#f0656a;--warn:#e3a849;--chip:#2a2a2f}}
+:root{--bg:#f6f3ec;--card:#fffdf8;--sunken:#efe9dc;--ink:#1b1a17;--muted:#6d675c;--line:#e4dccb;--accent:#2f6f4f;
+--bad:#c4363a;--warn:#b7791f;--chip:#efe9dc;--shadow:0 1px 2px rgba(40,30,10,.05),0 8px 24px rgba(40,30,10,.07)}
+@media (prefers-color-scheme:dark){:root{--bg:#121311;--card:#1b1c19;--sunken:#161714;--ink:#ecebe6;--muted:#a29d92;
+--line:#2c2d29;--accent:#6fcf9b;--bad:#f0656a;--warn:#e3a849;--chip:#262723;--shadow:0 1px 2px rgba(0,0,0,.3),0 10px 28px rgba(0,0,0,.35)}}
 *{box-sizing:border-box}
-body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.55 system-ui,-apple-system,"Segoe UI",sans-serif}
-main{max-width:980px;margin:0 auto;padding:32px 16px 64px}
-h1{font-size:28px;margin:0 0 4px}h2{font-size:20px;margin:40px 0 12px}h3{font-size:17px;margin:0 0 6px}
+body{margin:0;background:var(--bg);color:var(--ink);font:15.5px/1.6 Inter,system-ui,-apple-system,"Segoe UI",sans-serif;
+-webkit-font-smoothing:antialiased;overflow-x:clip}
+main{max-width:1000px;margin:0 auto;padding:36px 16px 72px}
+h1,h2,h3{font-family:Fraunces,Georgia,serif;font-weight:600;letter-spacing:-.01em;line-height:1.2}
+h1{font-size:34px;margin:0 0 6px}h2{font-size:24px;margin:48px 0 14px}h3{font-size:19px;margin:0 0 8px}
 .muted{color:var(--muted)}a{color:var(--accent)}
-.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px;margin:20px 0}
-.kpi{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:12px 14px}
-.kpi b{display:block;font-size:22px}.kpi span{color:var(--muted);font-size:13px}
-.card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:20px;margin:14px 0}
-.theme-head{display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;align-items:baseline}
-.freq{color:var(--muted);font-size:13px}
-.links{display:flex;flex-wrap:wrap;gap:8px;margin:10px 0 4px;padding:0;list-style:none}
-.links a{display:inline-block;background:var(--chip);border-radius:999px;padding:4px 12px;text-decoration:none;font-size:13px}
-.example{display:grid;grid-template-columns:260px 1fr;gap:18px;border-top:1px solid var(--line);padding-top:16px;margin-top:16px}
-.example svg{width:100%;height:auto;border-radius:6px}
-@media (max-width:640px){.example{grid-template-columns:1fr}.example .board{max-width:320px}}
-.move{font-weight:600}.bad{color:var(--bad)}.good{color:var(--accent)}
-.tag{display:inline-block;background:var(--chip);border-radius:4px;padding:1px 7px;font-size:12px;margin-right:4px}
-.kind-blunder{color:var(--bad)}.kind-mistake{color:var(--warn)}
-code{font-family:ui-monospace,Consolas,monospace;font-size:13px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:22px;margin:14px 0;box-shadow:var(--shadow)}
+.sub{color:var(--muted);margin-bottom:22px}
+.takeaway{font-size:17.5px;margin:0 0 16px}
+.reminder{display:flex;gap:12px;align-items:flex-start;background:color-mix(in srgb,var(--accent) 11%,transparent);
+border-radius:10px;padding:12px 14px;margin:0 0 14px}
+.reminder b{flex:none;font-size:12px;letter-spacing:.06em;text-transform:uppercase;color:var(--accent);padding-top:3px}
+.note{margin:10px 0 0;color:var(--muted)}.note b{color:var(--ink)}
 table{width:100%;border-collapse:collapse;font-size:14px}
-th,td{text-align:left;padding:7px 8px;border-bottom:1px solid var(--line)}th{color:var(--muted);font-weight:500}
+th,td{text-align:left;padding:8px;border-bottom:1px solid var(--line)}th{color:var(--muted);font-weight:500}
+tr:last-child td{border-bottom:0}
 td.num,th.num{text-align:right;font-variant-numeric:tabular-nums}
 .table-wrap{overflow-x:auto}
-ul.plain{padding-left:18px;margin:6px 0}
+.badge{display:inline-block;font:600 11px/1 Inter,sans-serif;letter-spacing:.06em;text-transform:uppercase;border-radius:999px;
+padding:5px 9px;margin-bottom:10px}
+.badge.recurring{background:color-mix(in srgb,var(--bad) 15%,transparent);color:var(--bad)}
+.badge.notable{background:var(--chip);color:var(--muted)}
+.evidence{color:var(--muted);font-size:14px;margin:-2px 0 10px}
+.obs p{margin:0 0 10px}
+.obs-foot{font-size:14px;color:var(--muted);display:flex;flex-wrap:wrap;gap:6px 14px}
+.obs-foot a{text-decoration:none;font-weight:600}
+.moment{display:grid;grid-template-columns:280px minmax(0,1fr);gap:22px}
+.moment .board svg{width:100%;height:auto;border-radius:8px;display:block}
+@media (max-width:700px){.moment{grid-template-columns:minmax(0,1fr)}.moment .board{max-width:340px}}
+.moment-top{display:flex;flex-wrap:wrap;align-items:center;gap:6px 8px;font-size:13px;color:var(--muted);margin-bottom:8px}
+.num-badge{display:inline-grid;place-items:center;min-width:26px;height:26px;border-radius:50%;background:var(--ink);
+color:var(--bg);font:600 13px Inter,sans-serif}
+.kind-blunder{color:var(--bad);font-weight:600}.kind-mistake{color:var(--warn);font-weight:600}
+.explain{margin:0 0 14px}
+.facts{display:grid;grid-template-columns:max-content minmax(0,1fr);gap:6px 14px;margin:0 0 12px;font-size:14px}
+.facts dt{color:var(--muted)}.facts dd{margin:0}
+.move{font-weight:600}.bad{color:var(--bad)}.good{color:var(--accent)}
+.chip{display:inline-block;background:var(--chip);border-radius:5px;padding:1px 7px;font-size:12px;color:var(--muted)}
+details{font-size:14px;margin:0 0 10px}summary{cursor:pointer;color:var(--muted)}
+details > div{margin:8px 0 0}
+.game-links{font-size:13px;color:var(--muted)}
 html{scroll-behavior:smooth}
 [id]{scroll-margin-top:64px}
 .toc{position:sticky;top:0;z-index:5;background:color-mix(in srgb,var(--bg) 88%,transparent);backdrop-filter:blur(8px);
 border-bottom:1px solid var(--line)}
-.toc ul{max-width:980px;margin:0 auto;padding:0 16px;display:flex;gap:4px;list-style:none;overflow-x:auto;scrollbar-width:none}
+.toc ul{max-width:1000px;margin:0 auto;padding:0 16px;display:flex;gap:4px;list-style:none;overflow-x:auto;scrollbar-width:none}
 .toc a{display:block;white-space:nowrap;padding:12px 10px;font-size:14px;color:var(--muted);text-decoration:none;
 border-bottom:2px solid transparent}
 .toc a:hover{color:var(--ink)}.toc a.active{color:var(--ink);border-bottom-color:var(--accent)}
-.glance{border-left:4px solid var(--accent)}
-.glance p{margin:0 0 12px}
-.glance ol{margin:0;padding-left:22px}.glance li{margin:6px 0}
-.glance li a{font-weight:600;text-decoration:none}.glance li span{color:var(--muted);font-size:13px}
-.glance .start{margin:14px 0 0;padding-top:12px;border-top:1px solid var(--line)}
-.num-badge{display:inline-grid;place-items:center;min-width:26px;height:26px;border-radius:50%;background:var(--chip);
-font-size:13px;font-weight:600;margin-right:8px}
-.theme-head h3{display:flex;align-items:center}
 .line{display:inline-flex;flex-wrap:wrap;gap:3px 4px;align-items:center;vertical-align:middle}
 .mn{color:var(--muted);font:12px ui-monospace,Consolas,monospace}
 .step{font:13px ui-monospace,Consolas,monospace;color:var(--ink);background:var(--chip);border:1px solid transparent;
@@ -63,6 +79,21 @@ border-radius:5px;padding:1px 6px;cursor:pointer}
 .step:hover{border-color:var(--line)}
 .step.on{border-color:var(--accent);background:color-mix(in srgb,var(--accent) 18%,var(--chip))}
 .replay{font:inherit;background:none;border:0;padding:0;cursor:pointer;text-decoration:underline dotted;text-underline-offset:3px}
+code{font-family:ui-monospace,Consolas,monospace;font-size:13px}
+.method{font-size:14px;color:var(--muted)}.method li{margin:4px 0}
+.takeaways{margin:0 0 16px;padding-left:22px;font-size:16.5px}.takeaways li{margin:0 0 8px;padding-left:4px}
+.takeaways li::marker{font-family:Fraunces,Georgia,serif;font-weight:600;color:var(--accent)}
+.coverage{font-size:14px;color:var(--muted);border-top:1px solid var(--line);padding-top:12px;margin:14px 0 6px}
+.issue-index{padding:16px 22px 16px 44px;margin:0 0 26px}.issue-index li{margin:5px 0}
+.issue-index a{font-weight:600;text-decoration:none}.issue-index span{color:var(--muted);font-size:13px}
+.issue{margin:0 0 38px}
+.issue-top{display:flex;align-items:center;gap:10px;margin-bottom:8px}
+.issue-top .badge{margin:0}
+.issue-no{display:inline-grid;place-items:center;width:30px;height:30px;border-radius:9px;background:var(--accent);
+color:var(--bg);font:600 15px Fraunces,Georgia,serif}
+.issue-body{margin-left:14px;padding-left:18px;border-left:3px solid var(--line)}
+@media (max-width:600px){.issue-body{margin-left:4px;padding-left:10px}}
+.more summary{font-weight:600;color:var(--ink)}.more table{margin-top:10px;font-size:13px}
 """
 
 TOC_SCRIPT = """<script>
@@ -238,59 +269,113 @@ def _line(board: chess.Board, san_line: str) -> str:
     return f'<span class="line">{"".join(out)}</span>'
 
 
-def _example(g: dict, e: dict, comment: str, public: bool) -> str:
+def _short_date(iso: str | None) -> str:
+    if not iso:
+        return ""
+    d = datetime.strptime(iso, "%Y-%m-%d")
+    return f"{d:%b} {d.day}"
+
+
+def _moment(n: int, m: dict, g: dict, e: dict, public: bool) -> str:
     dots = "." if g["color"] == "white" else "..."
-    analysis = "https://lichess.org/analysis/" + e["fen"].replace(" ", "_")
-    clock = f" · {e['clock']:.0f}s left" if e["clock"] is not None else ""
-    tags = "".join(f'<span class="tag">{escape(TAG_LABELS.get(t, t))}</span>' for t in e["tags"])
     start = chess.Board(e["fen"])
     after = start.copy(stack=False)
     after.push(chess.Move.from_uci(e["played_uci"]))
-    best = (
-        f'Best was <span class="move good">{escape(e["best_san"])}</span>'
-        f'<div>{_line(start, e["best_line"])}</div>'
-        if e["best_san"]
-        else ""
-    )
-    refutation = (
-        f'<div style="margin-top:6px">Punishment: {_line(after, e["refutation"])}</div>' if e["refutation"] else ""
+    analysis = "https://lichess.org/analysis/" + e["fen"].replace(" ", "_")
+    clock = f"{e['clock']:.0f}s left" if e["clock"] is not None else ""
+    tags = "".join(f'<span class="chip">{escape(TAG_LABELS.get(t, t))}</span>' for t in e["tags"])
+    headline = m.get("headline") or f"{e['move_no']}{dots} {e['played_san']}"
+    explanation = f'<p class="explain">{escape(m["explanation"])}</p>' if m.get("explanation") else ""
+
+    facts = [
+        ("You played", f'{e["move_no"]}{dots} <button type="button" class="replay move bad" '
+                       f'title="Back to the position">{escape(e["played_san"])}</button>'),
+        ("Eval for you", f'{escape(e["eval_before"])} → {escape(e["eval_after"])}'),
+    ]
+    if e["best_san"]:
+        facts.append(("Better", f'<span class="move good">{escape(e["best_san"])}</span>'))
+    if e.get("game_went"):
+        facts.append(("The game went", _line(after, e["game_went"])))
+    facts_html = "".join(f"<dt>{k}</dt><dd>{v}</dd>" for k, v in facts)
+
+    engine = []
+    if e["best_line"]:
+        engine.append(f"<div>Best line: {_line(start, e['best_line'])}</div>")
+    if e["refutation"]:
+        engine.append(f"<div>Engine's reply to {escape(e['played_san'])}: {_line(after, e['refutation'])}</div>")
+    engine_html = f"<details><summary>Engine lines</summary>{''.join(engine)}</details>" if engine else ""
+
+    meta = " · ".join(
+        x for x in (escape(e["phase"]), escape(g["time_class"]), f"vs {escape(_opponent(g, public))}",
+                    _short_date(g["date"]), clock) if x
     )
     return f"""
-<div class="example">
+<article class="card example moment" id="moment-{n}">
   <div class="board" data-flip="{int(g['color'] == 'black')}">{_board_svg(e, g["color"])}</div>
   <div>
-    <div><span class="kind-{e['kind']}">{e['kind'].capitalize()}</span> · {escape(e['phase'])}{clock}</div>
-    <h3>{e['move_no']}{dots} <button type="button" class="replay move bad" title="Back to the position">{escape(e['played_san'])}</button>
-      <span class="muted">({escape(e['eval_before'])} → {escape(e['eval_after'])})</span></h3>
-    {best}
-    {refutation}
-    <p>{escape(comment)}</p>
-    <div>{tags}</div>
-    <p class="muted" style="font-size:13px">vs {escape(_opponent(g, public))} ·
-      {escape(g['date'])} · {escape(g['time_class'])} · {escape(g['result'])} ·
-      <a href="{escape(g['url'])}">game on chess.com</a> ·
-      <a href="{escape(analysis)}">analyse position</a></p>
+    <div class="moment-top"><span class="num-badge">{n}</span>
+      <span class="kind-{e['kind']}">{e['kind'].capitalize()}</span><span>{meta}</span>{tags}</div>
+    <h3>{escape(headline)}</h3>
+    {explanation}
+    <dl class="facts">{facts_html}</dl>
+    {engine_html}
+    <div class="game-links"><a href="{escape(g['url'])}">Game on chess.com</a> ·
+      <a href="{escape(analysis)}">Analyse position</a></div>
   </div>
-</div>"""
+</article>"""
 
 
-def _theme_card(n: int, t: dict, index: dict, public: bool) -> str:
-    meta = THEMES[t["theme_id"]]
-    links = "".join(f'<li><a href="{escape(u)}">{escape(label)}</a></li>' for label, u in meta["links"])
-    drills = "".join(f"<li>{escape(d)}</li>" for d in t.get("drills", []))
-    examples = "".join(
-        _example(*index[x["mistake_id"]], x["comment"], public) for x in t["examples"] if x["mistake_id"] in index
+def _more_row(g: dict, e: dict, public: bool) -> str:
+    dots = "." if g["color"] == "white" else "..."
+    analysis = "https://lichess.org/analysis/" + e["fen"].replace(" ", "_")
+    tags = " ".join(f'<span class="chip">{escape(TAG_LABELS.get(t, t))}</span>' for t in e["tags"])
+    better = f" (better {escape(e['best_san'])})" if e["best_san"] else ""
+    return (
+        f'<tr><td>{_short_date(g["date"])}</td><td>{escape(g["time_class"])}</td>'
+        f'<td>{escape(_opponent(g, public))}, {escape(g["result"])}</td>'
+        f'<td><span class="move">{e["move_no"]}{dots} {escape(e["played_san"])}</span>{better}</td>'
+        f'<td class="num">{escape(e["eval_before"])} → {escape(e["eval_after"])}</td>'
+        f'<td>{escape(e["phase"])} {tags}</td>'
+        f'<td><a href="{escape(g["url"])}">game</a> · <a href="{escape(analysis)}">position</a></td></tr>'
     )
-    diagnosis = f"<p>{escape(t['diagnosis'])}</p>" if t.get("diagnosis") else ""
+
+
+def _issue(k: int, issue: dict, index: dict, numbers: dict, total_games: int, public: bool) -> str:
+    meta = THEMES.get(issue["theme_id"], {})
+    badge = ("recurring", "Recurring") if issue.get("recurring") else ("notable", "Notable")
+    per_class = ", ".join(f"{tc} {n}" for tc, n in issue.get("by_class", {}).items())
+    count = issue.get("count", 0)
+    evidence = (
+        f'{count} flagged {"mistake" if count == 1 else "mistakes"} in {issue.get("games", 0)} of {total_games} games'
+        + (f" ({per_class})" if per_class else "")
+    )
+    practice = ""
+    if meta.get("links"):
+        label, url = meta["links"][0]
+        practice = f'<div class="obs-foot"><span>Practice: <a href="{escape(url)}">{escape(label)}</a></span></div>'
+    boards = "".join(
+        _moment(numbers[x["mistake_id"]], x, *index[x["mistake_id"]], public) for x in issue["examples"]
+    )
+    more_ids = issue.get("more", [])
+    more = ""
+    if more_ids:
+        rows = "".join(_more_row(*index[i], public) for i in more_ids)
+        word = "example" if len(more_ids) == 1 else "examples"
+        more = (
+            f'<details class="card more"><summary>{len(more_ids)} more {word} of this issue</summary>'
+            '<div class="table-wrap"><table><thead><tr><th>Date</th><th>Type</th><th>Opponent</th><th>Move</th>'
+            f'<th class="num">eval for you</th><th>Phase</th><th></th></tr></thead><tbody>{rows}</tbody></table></div></details>'
+        )
     return f"""
-<section class="card" id="problem-{n}">
-  <div class="theme-head"><h3><span class="num-badge">{n}</span>{escape(t['title'])}</h3>
-    <span class="freq">{escape(t['frequency'])}</span></div>
-  {diagnosis}
-  <p><b>How to fix:</b> {escape(t['how_to_fix'])}</p>
-  {f'<ul class="plain">{drills}</ul>' if drills else ''}
-  <ul class="links">{links}</ul>
-  {examples}
+<section class="issue" id="issue-{k}">
+  <div class="card obs">
+    <div class="issue-top"><span class="issue-no">{k}</span><span class="badge {badge[0]}">{badge[1]}</span></div>
+    <h3>{escape(issue['title'])}</h3>
+    <p class="evidence">{escape(evidence)}</p>
+    <p>{escape(issue['explanation'])}</p>
+    {practice}
+  </div>
+  <div class="issue-body">{boards}{more}</div>
 </section>"""
 
 
@@ -302,68 +387,77 @@ DISCLAIMER = (
 
 def render(username: str, results: list[dict], stats: dict, review: dict, public: bool = False) -> str:
     index = {error_id(gi, e): (g, e) for gi, g in enumerate(results) for e in g["errors"]}
-    r = stats["results"]
-    kpis = [
-        (stats["games"], "games"),
-        (f"{r.get('win', 0)} / {r.get('draw', 0)} / {r.get('loss', 0)}", "win / draw / loss"),
-        (stats["accuracy"] if stats["accuracy"] is not None else "-", "avg accuracy*"),
-        (stats["per_game"]["blunder"], "blunders / game"),
-        (stats["per_game"]["mistake"], "mistakes / game"),
-        (stats["loss_reasons"].get("timeout", 0), "losses on time"),
-    ]
-    kpi_html = "".join(f'<div class="kpi"><b>{escape(str(v))}</b><span>{escape(k)}</span></div>' for v, k in kpis)
+    issues = review.get("issues", [])
+    for issue in issues:
+        issue["examples"] = [x for x in issue.get("examples", []) if x["mistake_id"] in index]
+    numbers: dict[str, int] = {}
+    for issue in issues:
+        for x in issue["examples"]:
+            numbers.setdefault(x["mistake_id"], len(numbers) + 1)
+    serious = sum(1 for g in results for e in g["errors"] if e["kind"] in SERIOUS)
 
-    shown = [t for t in review["themes"] if t["theme_id"] in THEMES]
-    themes = "".join(_theme_card(n, t, index, public) for n, t in enumerate(shown, 1))
-    problem_list = "".join(
-        f'<li><a href="#problem-{n}">{escape(t["title"])}</a> <span>{escape(t["frequency"])}</span></li>'
-        for n, t in enumerate(shown, 1)
+    classes = stats["by_time_class"]
+    class_line = ", ".join(f"{tc} {s['games']}" for tc, s in classes.items())
+    period = f"{_short_date(stats['from'])} to {_short_date(stats['to'])}" if stats["from"] != stats["to"] \
+        else _short_date(stats["from"])
+    by = f"AI review by {escape(review['model'])}" if review.get("model") else "Engine-only review"
+
+    class_rows = "".join(
+        f'<tr><td>{escape(tc)}</td><td class="num">{s["games"]}</td>'
+        f'<td class="num">{s["win"]} / {s["draw"]} / {s["loss"]}</td>'
+        f'<td class="num">{s["accuracy"] if s["accuracy"] is not None else "-"}</td>'
+        f'<td class="num">{s["errors_per_game"]}</td><td class="num">{s["blunders_per_game"]}</td>'
+        f'<td class="num">{s["losses_on_time"]}</td></tr>'
+        for tc, s in classes.items()
     )
-    start = (
-        f'<p class="start"><b>Start with:</b> {escape(review["training_plan"][0])}</p>'
-        if review.get("training_plan")
-        else ""
+    class_table = (
+        '<div class="table-wrap"><table><thead><tr><th>Time control</th><th class="num">games</th>'
+        '<th class="num">W / D / L</th><th class="num">accuracy*</th><th class="num">errors / game</th>'
+        f'<th class="num">blunders / game</th><th class="num">lost on time</th></tr></thead><tbody>{class_rows}'
+        "</tbody></table></div>"
     )
-    summary_text = f'<p>{escape(review["summary"])}</p>' if review.get("summary") else ""
-    glance = (
-        f'<h2 id="summary">At a glance</h2><section class="card glance">{summary_text}'
-        f'{f"<ol>{problem_list}</ol>" if problem_list else ""}{start}</section>'
-        if summary_text or problem_list
-        else ""
+
+    summary_parts = []
+    if review.get("takeaways"):
+        items = "".join(f"<li>{escape(t)}</li>" for t in review["takeaways"])
+        summary_parts.append(f'<ol class="takeaways">{items}</ol>')
+    if review.get("reminder"):
+        summary_parts.append(f'<div class="reminder"><b>Next game</b><span>{escape(review["reminder"])}</span></div>')
+    if review.get("positive"):
+        summary_parts.append(f'<p class="note"><b>Went well:</b> {escape(review["positive"])}</p>')
+    if review.get("history_note"):
+        summary_parts.append(f'<p class="note"><b>Compared with earlier:</b> {escape(review["history_note"])}</p>')
+    if issues:
+        summary_parts.append(
+            f'<p class="coverage">{serious} flagged errors across {stats["games"]} games. This digest highlights '
+            f'{len(issues)} {"issue" if len(issues) == 1 else "issues"} and {len(numbers)} representative '
+            f'{"position" if len(numbers) == 1 else "positions"}; the rest are listed under each issue.</p>'
+        )
+    summary_html = "".join(summary_parts)
+    issue_links = "".join(
+        f'<li><a href="#issue-{k}">{escape(i["title"])}</a> <span>{"Recurring" if i.get("recurring") else "Notable"}'
+        f', {i.get("games", 0)} games</span></li>'
+        for k, i in enumerate(issues, 1)
     )
-    strengths = (
-        '<h2 id="strengths">What you do well</h2><section class="card"><ul class="plain">'
-        + "".join(f"<li>{escape(s)}</li>" for s in review["strengths"])
-        + "</ul></section>"
-        if review.get("strengths")
-        else ""
-    )
-    plan = (
-        '<h2 id="plan">Training plan</h2><section class="card"><ol>'
-        + "".join(f"<li>{escape(s)}</li>" for s in review["training_plan"])
-        + "</ol></section>"
-        if review.get("training_plan")
-        else ""
-    )
-    nav_items = [("summary", "Summary", glance), ("problems", "Problems", True), ("strengths", "Strengths", strengths),
-                 ("plan", "Training plan", plan), ("stats", "Statistics", True), ("openings", "Openings", True),
-                 ("games", "Games", True)]
-    toc = "".join(f'<li><a href="#{i}">{label}</a></li>' for i, label, present in nav_items if present)
+    issues_html = "".join(_issue(k, i, index, numbers, stats["games"], public) for k, i in enumerate(issues, 1))
 
     phase_rows = "".join(
         f'<tr><td>{escape(p)}</td><td class="num">{stats["phases"].get(p, 0)}</td></tr>'
         for p in ("opening", "middlegame", "endgame")
     )
     tag_rows = "".join(
-        f'<tr><td>{escape(TAG_LABELS.get(t, t))}</td><td class="num">{n}</td></tr>' for t, n in stats["tags"].most_common()
+        f'<tr><td>{escape(TAG_LABELS.get(t, t))}</td><td class="num">{s["count"]}</td><td class="num">{s["games"]}</td></tr>'
+        for t, s in stats["tag_stats"].items()
     )
+
     def opening_cell(name: str, url: str) -> str:
         return f'<a href="{escape(url)}">{escape(name)}</a>' if url else escape(name)
 
     open_rows = "".join(
         f'<tr><td>{opening_cell(name, o["url"])}</td>'
         f'<td class="num">{o["games"]}</td><td class="num">{round(100 * o["points"] / o["games"])}%</td>'
-        f'<td class="num">{o["errors"] / o["games"]:.1f}</td></tr>'
+        f'<td class="num">{o["opening_errors"] / o["games"]:.1f}</td>'
+        f'<td class="num">{o["later_errors"] / o["games"]:.1f}</td></tr>'
         for name, o in list(stats["openings"].items())[:12]
     )
     game_rows = "".join(
@@ -374,36 +468,53 @@ def render(username: str, results: list[dict], stats: dict, review: dict, public
         f'<td><a href="{escape(g["url"])}">open</a></td></tr>'
         for g in results
     )
-    by = f"AI review by {escape(review['model'])}" if review.get("model") else "Engine-only review (no AI)"
+
+    nav = [("summary", "Summary"), ("issues", "Issues", issues), ("stats", "Statistics"), ("openings", "Openings"),
+           ("games", "Games")]
+    toc = "".join(f'<li><a href="#{n[0]}">{n[1]}</a></li>' for n in nav if len(n) == 2 or n[2])
 
     return f"""<!doctype html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 {'<meta name="robots" content="noindex">' if public else ''}
-<title>Chess digest: {escape(username)}</title><style>{CSS}</style></head>
+<title>Chess digest: {escape(username)}</title>{FONTS}<style>{CSS}</style></head>
 <body>{BOARD_DEFS}
 <nav class="toc" aria-label="Sections"><ul>{toc}</ul></nav>
 <main>
 <h1>Chess digest for {escape(username)}</h1>
-<div class="muted">{date.today().isoformat()} · last {stats['games']} games · {by}</div>
-<div class="kpis">{kpi_html}</div>
-{glance}
-<h2 id="problems">Recurring problems</h2>
-{themes or '<p class="muted">No recurring problems found.</p>'}
-{strengths}
-{plan}
-<h2 id="stats">Statistics</h2>
+<div class="sub">{period} · {stats['games']} games ({escape(class_line)}) · {by}</div>
+
+<section class="card" id="summary">
+{summary_html}
+{class_table}
+</section>
+
+{f'<h2 id="issues">Issues</h2><ol class="issue-index card">{issue_links}</ol>{issues_html}' if issues else ''}
+
+<h2 id="stats">Supporting statistics</h2>
 <section class="card"><div class="table-wrap">
-<table><thead><tr><th>Mistakes + blunders by phase</th><th class="num">count</th></tr></thead><tbody>{phase_rows}</tbody></table>
-<br><table><thead><tr><th>Engine-detected pattern</th><th class="num">count</th></tr></thead><tbody>{tag_rows}</tbody></table>
+<table><thead><tr><th>Mistakes and blunders by phase</th><th class="num">count</th></tr></thead><tbody>{phase_rows}</tbody></table>
+</div></section>
+<section class="card"><div class="table-wrap">
+<table><thead><tr><th>Engine-detected pattern</th><th class="num">times</th><th class="num">games</th></tr></thead>
+<tbody>{tag_rows}</tbody></table>
 </div></section>
 <h2 id="openings">Openings</h2>
 <section class="card"><div class="table-wrap"><table><thead><tr><th>Opening</th><th class="num">games</th>
-<th class="num">score</th><th class="num">errors/game</th></tr></thead><tbody>{open_rows}</tbody></table></div></section>
+<th class="num">score</th><th class="num">errors in opening / game</th><th class="num">errors later / game</th></tr></thead>
+<tbody>{open_rows}</tbody></table></div></section>
 <h2 id="games">Games</h2>
 <section class="card"><div class="table-wrap"><table><thead><tr><th>Date</th><th>Type</th><th>Color</th><th>Opponent</th>
 <th>Result</th><th class="num">Acc.</th><th class="num">Errors</th><th></th></tr></thead><tbody>{game_rows}</tbody></table></div></section>
-<p class="muted" style="font-size:13px">*Accuracy uses the Lichess win-chance formula on Stockfish evaluations, so it
-will differ from chess.com's CAPS score. Red arrow = your move, green arrow = engine's best move.
-Click any move in a line to see that position (← → step through it); click your move to go back.</p>
+
+<details class="method"><summary>How this report is made</summary><ul>
+<li>Stockfish evaluates every position. Evaluations are always from your side: positive is good for you.</li>
+<li>A move is a mistake when your winning chances drop by 20 points or more, and a blunder at 30.</li>
+<li>"Recurring" means the same kind of mistake in at least 3 different games. Anything less is marked "Notable".</li>
+<li>"Under 10% clock" means at most a tenth of the starting time was left. It is context, not a verdict.</li>
+<li>"The game went" is what was actually played. Engine lines are what Stockfish would play.</li>
+<li>*Accuracy uses the Lichess win-chance formula, so it differs from chess.com's CAPS score.</li>
+<li>Red arrow: your move. Green arrow: the engine's move. Click a move in any line to see that position
+(← → step through it); click your move to go back.</li>
+</ul></details>
 <p class="muted" style="font-size:13px">{DISCLAIMER}</p>
 </main>{TOC_SCRIPT}{STEP_SCRIPT}</body></html>"""

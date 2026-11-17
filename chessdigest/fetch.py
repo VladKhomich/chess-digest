@@ -39,6 +39,7 @@ def fetch_recent_games(
     rated_only: bool = False,
     since: float | None = None,
     skip: set[str] | None = None,
+    until: float | None = None,
 ) -> tuple[list[dict], int]:
     """Newest-first finished games, plus how many were skipped because they were in `skip`."""
     session = requests.Session()
@@ -55,6 +56,8 @@ def fetch_recent_games(
         for g in sorted(month, key=lambda g: g.get("end_time", 0), reverse=True):
             if since is not None and g.get("end_time", 0) < since:
                 break
+            if until is not None and g.get("end_time", 0) > until:
+                continue
             if g.get("rules") != "chess" or "pgn" not in g:
                 continue
             if time_classes and g.get("time_class") not in time_classes:

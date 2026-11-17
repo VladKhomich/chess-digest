@@ -21,6 +21,9 @@ VALUES = {chess.PAWN: 1, chess.KNIGHT: 3, chess.BISHOP: 3, chess.ROOK: 5, chess.
 DRAW_RESULTS = {"agreed", "repetition", "stalemate", "insufficient", "50move", "timevsinsufficient"}
 MATE = 10000
 
+# Bump when the stored per-game fields change, so old cache files are not reused.
+CACHE_VERSION = 2
+
 # Thresholds on the drop in winning chances (percentage points), same idea as Lichess.
 INACCURACY, MISTAKE, BLUNDER = 10, 20, 30
 
@@ -190,10 +193,11 @@ def _tags(
     return tags
 
 
-def _low_on_time(clock: float | None, base: int | None) -> bool:
-    if clock is None:
+def _low_clock(clock: float | None, base: int | None) -> bool:
+    """At most 10% of the starting time left (never less than 10s). Daily games have no base and never qualify."""
+    if clock is None or not base:
         return False
-    return clock < max(15, 0.1 * base) if base else clock < 15
+    return clock <= max(10, 0.1 * base)
 
 
 def analyze_game(engine, g: dict, username: str, depth: int) -> dict:
@@ -225,8 +229,9 @@ def analyze_game(engine, g: dict, username: str, depth: int) -> dict:
                 after.push(move)
                 clock = node.clock()
                 tags = _tags(board, move, pv_before, pv_after, cp_b, cp_a, drop)
-                if _low_on_time(clock, base):
-                    tags.append("time_trouble")
+                if _low_clock(clock, base):
+                    tags.append("low_clock")
+                game_went = after.variation_san([n.move for n in nodes[i + 1 : i + 5]]) if i + 1 < len(nodes) else ""
                 errors.append(
                     {
                         "ply": i,
@@ -238,6 +243,7 @@ def analyze_game(engine, g: dict, username: str, depth: int) -> dict:
                         "best_uci": best.uci() if best else None,
                         "best_line": board.variation_san(pv_before[:6]) if pv_before else "",
                         "refutation": after.variation_san(pv_after[:6]) if pv_after else "",
+                        "game_went": game_went,
                         "eval_before": fmt_eval(cp_b),
                         "eval_after": fmt_eval(cp_a),
                         "drop": round(drop, 1),
@@ -301,7 +307,7 @@ def analyze_games(
         return local.e
 
     def work(g: dict) -> dict:
-        cache = cache_dir / f"{username.lower()}_{game_id(g)}_d{depth}.json"
+        cache = cache_dir / f"{username.lower()}_{game_id(g)}_d{depth}_v{CACHE_VERSION}.json"
         if cache.exists():
             return json.loads(cache.read_text(encoding="utf-8"))
         res = analyze_game(engine(), g, username, depth)
