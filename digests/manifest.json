@@ -1,14 +1,14 @@
 [
  {
-  "file": "pahomax-20261115-211710.html",
-  "published": "2026-11-15 21:17",
+  "file": "pahomax-20261117-160332.html",
+  "published": "2026-11-17 16:03",
   "user": "Pahomax",
   "from": "2026-11-08",
   "to": "2026-11-15",
-  "games": 54,
-  "record": "32/2/20",
-  "accuracy": 84.8,
-  "blunders_per_game": 1.06,
+  "games": 63,
+  "record": "35/2/26",
+  "accuracy": 84.1,
+  "blunders_per_game": 1.17,
   "ai": true
  }
 ]
