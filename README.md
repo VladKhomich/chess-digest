@@ -52,7 +52,7 @@ include it again.
 | `--depth N` | Stockfish depth (default 14) |
 | `--no-ai` | group mistakes by engine tags only, no API call |
 | `--model ID` | Claude model (default `claude-sonnet-5-5`) |
-| `--publish` | also write an anonymised copy to `docs/digests/` |
+| `--publish` | also write an anonymised copy to the `gh-pages` checkout in `.site/` |
 | `--check-links` | check that the study links still work |
 
 ## How it works
@@ -68,9 +68,13 @@ include it again.
 
 ## Publishing
 
-GitHub Pages serves the `docs` folder of `main`: `docs/index.html` is the project page and `docs/digests/` holds
-published reports. Published reports replace opponent usernames with "Opponent (rating)" and carry a `noindex` tag.
-`--publish` commits only `docs/digests/` and pushes.
+Published reports live on the `gh-pages` branch, never on `main`, so a fork or clone of the code doesn't carry
+anyone's games. `chess analyse --publish` checks that branch out into `.site/` (a git worktree), writes the report to
+`.site/digests/`, copies the project page from `site/index.html`, then commits and pushes `gh-pages`.
+
+In a fresh fork the first publish creates an empty `gh-pages` branch. Then go to Settings → Pages, choose
+"Deploy from a branch" and pick `gh-pages` / root. Published reports replace opponent usernames with
+"Opponent (rating)" and carry a `noindex` tag.
 
 ## Cost
 

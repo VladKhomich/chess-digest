@@ -48,7 +48,8 @@ def parse_args(argv: list[str] | None) -> argparse.Namespace:
     p.add_argument("--publish", action="store_true", help="also write an anonymised copy to the Pages folder")
     p.add_argument("--publish-last", action="store_true", help="publish the previous run without re-analysing")
     p.add_argument("--out", default=os.environ.get("CHESS_DIGEST_OUT", "out"))
-    p.add_argument("--site", default=os.environ.get("CHESS_DIGEST_SITE", "docs"), help="GitHub Pages folder")
+    p.add_argument("--site", default=os.environ.get("CHESS_DIGEST_SITE", ".site"),
+                   help="checkout of the gh-pages branch")
     p.add_argument("--check-links", action="store_true", help="check the study links and exit")
     return p.parse_args(argv)
 
