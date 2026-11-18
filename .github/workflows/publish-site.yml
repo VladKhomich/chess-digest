@@ -1,0 +1,42 @@
+name: Publish landing page
+
+on:
+  push:
+    branches: [main]
+    paths: [site/index.html]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: gh-pages
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          path: src
+
+      - uses: actions/checkout@v4
+        with:
+          ref: gh-pages
+          path: pages
+
+      - name: Copy landing page to gh-pages
+        working-directory: pages
+        run: |
+          cp ../src/site/index.html index.html
+          touch .nojekyll
+          git add index.html .nojekyll
+          if git diff --cached --quiet; then
+            echo "Landing page already up to date."
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898333+github-actions[bot]@users.noreply.github.com"
+          git commit -m "docs(site): publish landing page from ${GITHUB_SHA::7}"
+          git push origin gh-pages
