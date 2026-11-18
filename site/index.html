@@ -146,6 +146,101 @@ section.block{padding:96px 0}
 footer{border-top:1px solid var(--line);padding:28px 0 40px;color:var(--muted);font-size:14px}
 footer .wrap{display:flex;justify-content:space-between;gap:16px;flex-wrap:wrap}
 footer a{color:var(--muted)}
+
+/* hero motion */
+.drift{position:absolute;inset:0;pointer-events:none}
+.drift svg{position:absolute;left:var(--x);top:var(--y);width:var(--s);height:var(--s);opacity:.1;animation:drift 14s ease-in-out var(--d) infinite alternate}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]) .drift svg{opacity:.14}}
+:root[data-theme="dark"] .drift svg{opacity:.14}
+@keyframes drift{from{transform:translate(0,0) rotate(var(--r))}to{transform:translate(22px,-30px) rotate(calc(var(--r) * -1))}}
+.hero h1 em{padding-right:.08em;background:linear-gradient(var(--accent),var(--accent)) 0 94%/0 4px no-repeat;animation:underline .9s .5s cubic-bezier(.65,0,.35,1) forwards}
+@keyframes underline{to{background-size:100% 4px}}
+.showcase::before{content:"";position:absolute;inset:-12% -10%;z-index:-1;border-radius:50%;background:radial-gradient(closest-side,color-mix(in srgb,var(--accent) 22%,transparent),transparent);animation:glow 7s ease-in-out infinite alternate}
+@keyframes glow{from{transform:scale(.9);opacity:.6}to{transform:scale(1.05);opacity:1}}
+.bar i{animation:fill 1.4s .9s cubic-bezier(.2,.8,.2,1) both}
+@keyframes fill{from{width:0}}
+.float-card{animation:bob 6s ease-in-out infinite}
+@keyframes bob{50%{transform:rotate(1.5deg) translateY(-6px)}}
+
+/* animated board */
+.board-row{display:flex;gap:10px}
+.evalbar{position:relative;width:12px;flex:none;border-radius:6px;background:#2b2a27;overflow:hidden;box-shadow:inset 0 0 0 1px rgba(0,0,0,.18)}
+.evalbar i{position:absolute;left:0;right:0;bottom:0;height:92%;background:#f3efe6;transition:height .9s cubic-bezier(.65,0,.35,1)}
+.board{position:relative;flex:1;min-width:0}
+.board use{transition:transform .7s cubic-bezier(.65,0,.35,1),opacity .3s ease}
+.board use.gone{opacity:0;transition-delay:0s,.45s}
+.board .hl rect{fill:#cdd26a;opacity:.55;animation:fadein .3s ease}
+.arrow{opacity:.85;transition:opacity .4s ease}
+.arrow line{stroke:currentColor;stroke-width:8;stroke-linecap:round;stroke-dasharray:1 2;stroke-dashoffset:1;transition:stroke-dashoffset .45s ease-out}
+.arrow polygon{fill:currentColor;opacity:0;transition:opacity .15s ease .38s}
+.arrow.on line{stroke-dashoffset:0}
+.arrow.on polygon{opacity:1}
+.arrow.off{opacity:0}
+#mate-ring{opacity:0;transform-box:fill-box;transform-origin:center}
+#mate-ring.on{animation:ring 1.2s ease-out infinite}
+@keyframes ring{0%{opacity:.9;transform:scale(.7)}100%{opacity:0;transform:scale(1.5)}}
+@keyframes fadein{from{opacity:0}}
+.annot :is(.meta,.move,.chip){transition:opacity .18s ease}
+.annot.swap :is(.meta,.move,.chip){opacity:0}
+.annot .line code span{border-radius:4px;padding:0 2px;transition:background .3s,color .3s}
+.annot .line code span.cur{background:color-mix(in srgb,var(--accent) 18%,transparent);color:var(--ink)}
+.annot .muted{color:var(--muted)}
+
+/* lens */
+.lens{position:absolute;left:6.25%;top:43.75%;z-index:2;width:17%;aspect-ratio:1;transform:translate(-50%,-50%);pointer-events:none;opacity:0;--tone:var(--accent);
+  transition:left .9s cubic-bezier(.65,0,.35,1),top .9s cubic-bezier(.65,0,.35,1),opacity .4s ease}
+.lens.on{opacity:1}
+.lens.bad{--tone:var(--red)}
+.lens__glass{position:absolute;inset:0;border-radius:50%;border:2.5px solid var(--tone);
+  -webkit-backdrop-filter:brightness(1.12) saturate(1.35);backdrop-filter:brightness(1.12) saturate(1.35);
+  box-shadow:0 0 22px color-mix(in srgb,var(--tone) 55%,transparent),inset 0 0 14px color-mix(in srgb,var(--tone) 35%,transparent);transition:border-color .3s,box-shadow .3s}
+.lens__glass::after{content:"";position:absolute;inset:0;border-radius:inherit;background:radial-gradient(circle at 30% 25%,rgba(255,255,255,.45),transparent 42%)}
+.lens::after{content:"";position:absolute;top:88%;left:88%;width:42%;height:5px;border-radius:999px;background:var(--tone);transform:rotate(45deg);transform-origin:left center;transition:background .3s}
+.lens__label{position:absolute;bottom:100%;left:50%;transform:translate(-50%,-8px);white-space:nowrap;font-size:12px;font-weight:600;line-height:1.5;padding:2px 10px;border-radius:999px;
+  background:var(--surface);color:var(--tone);border:1px solid var(--line);box-shadow:var(--shadow);transition:opacity .2s ease}
+.lens.below .lens__label{top:100%;bottom:auto;transform:translate(-50%,10px)}
+.lens.start .lens__label{left:0;transform:translate(0,-8px)}
+.lens.start.below .lens__label{transform:translate(0,10px)}
+.lens.swap .lens__label{opacity:0}
+
+/* pipeline: a pawn walks the steps and promotes */
+.runner{position:absolute;top:-40px;left:6px;width:34px;height:34px;display:none;pointer-events:none}
+.runner svg{position:absolute;inset:0;width:100%;height:100%}
+.runner .q{opacity:0}
+.steps.in .runner{display:block;animation:walk 9s cubic-bezier(.65,0,.35,1) infinite}
+.steps.in .runner .p{animation:pawn 9s infinite}
+.steps.in .runner .q{animation:queen 9s infinite}
+@keyframes walk{0%,14%{left:6px}25%,39%{left:calc(25% + 12px)}50%,64%{left:calc(50% + 18px)}75%,100%{left:calc(75% + 24px)}}
+@keyframes pawn{0%,74%{opacity:1}78%,96%{opacity:0;transform:scale(.4)}100%{opacity:1}}
+@keyframes queen{0%,75%{opacity:0;transform:scale(.4)}81%{opacity:1;transform:scale(1.25)}86%,95%{opacity:1;transform:scale(1)}100%{opacity:0}}
+.steps.in .step::before{transition:none;animation:lit2 9s infinite}
+.steps.in .step:nth-child(2)::before{animation-name:lit1}
+.steps.in .step:nth-child(3)::before{animation-name:lit2}
+.steps.in .step:nth-child(4)::before{animation-name:lit3}
+.steps.in .step:nth-child(5)::before{animation-name:lit4}
+@keyframes lit1{0%,96%{background:var(--accent);color:var(--on-accent);box-shadow:0 0 0 6px color-mix(in srgb,var(--accent) 18%,transparent)}}
+@keyframes lit2{0%,24%{background:var(--bg)}27%,96%{background:var(--accent);color:var(--on-accent);box-shadow:0 0 0 6px color-mix(in srgb,var(--accent) 18%,transparent)}}
+@keyframes lit3{0%,49%{background:var(--bg)}52%,96%{background:var(--accent);color:var(--on-accent);box-shadow:0 0 0 6px color-mix(in srgb,var(--accent) 18%,transparent)}}
+@keyframes lit4{0%,74%{background:var(--bg)}77%,96%{background:var(--accent);color:var(--on-accent);box-shadow:0 0 0 6px color-mix(in srgb,var(--accent) 18%,transparent)}}
+@media (max-width:860px){.steps.in .runner{display:none}}
+
+/* cta knight */
+.hopper{display:block;width:56px;height:56px;margin:0 auto 18px;animation:hop 2.8s cubic-bezier(.3,0,.3,1) infinite}
+@keyframes hop{0%,55%,100%{transform:translate(0,0) rotate(0)}70%{transform:translate(0,-26px) rotate(-10deg)}85%{transform:translate(0,0) scaleY(.92)}}
+
+/* scroll reveal + small touches */
+.card .icon{transition:transform .3s cubic-bezier(.2,.8,.2,1)}
+.card:hover .icon{transform:rotate(-8deg) scale(1.1)}
+.js .reveal:not(.in){opacity:0}
+.reveal.in{animation:rise .7s cubic-bezier(.2,.8,.2,1) calc(var(--i,0) * 90ms) backwards}
+@keyframes rise{from{opacity:0;transform:translateY(22px)}}
+
+@media (max-width:600px){.float-card{animation:none}}
+@media (prefers-reduced-motion:reduce){
+  *,*::before,*::after{animation:none!important;transition:none!important}
+  .hero h1 em{background-size:100% 4px}
+  .js .reveal:not(.in){opacity:1}
+}
 </style>
 </head>
 <body>
@@ -163,6 +258,13 @@ footer a{color:var(--muted)}
 </nav>
 
 <header class="hero">
+  <div class="drift" aria-hidden="true">
+    <svg viewBox="0 0 45 45" style="--x:2%;--y:76%;--s:72px;--d:0s;--r:-12deg"><use href="#white-knight"/></svg>
+    <svg viewBox="0 0 45 45" style="--x:38%;--y:80%;--s:48px;--d:-4s;--r:8deg"><use href="#white-pawn"/></svg>
+    <svg viewBox="0 0 45 45" style="--x:46%;--y:3%;--s:56px;--d:-7s;--r:-6deg"><use href="#white-rook"/></svg>
+    <svg viewBox="0 0 45 45" style="--x:93%;--y:78%;--s:54px;--d:-2s;--r:10deg"><use href="#white-bishop"/></svg>
+    <svg viewBox="0 0 45 45" style="--x:90%;--y:2%;--s:50px;--d:-9s;--r:-10deg"><use href="#white-queen"/></svg>
+  </div>
   <div class="wrap">
     <div>
       <span class="eyebrow">Stockfish + Claude</span>
@@ -176,13 +278,19 @@ footer a{color:var(--muted)}
     </div>
     <div class="showcase">
       <figure class="board-card" style="margin:0">
-        <svg viewBox="0 0 360 360" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Position before Qc3"><rect width="360" height="360" fill="url(#cb)"/><text x="42" y="357" font-size="9" text-anchor="end" fill="#f0d9b5">a</text><text x="2" y="10" font-size="9" fill="#b58863">8</text><text x="87" y="357" font-size="9" text-anchor="end" fill="#b58863">b</text><text x="2" y="55" font-size="9" fill="#f0d9b5">7</text><text x="132" y="357" font-size="9" text-anchor="end" fill="#f0d9b5">c</text><text x="2" y="100" font-size="9" fill="#b58863">6</text><text x="177" y="357" font-size="9" text-anchor="end" fill="#b58863">d</text><text x="2" y="145" font-size="9" fill="#f0d9b5">5</text><text x="222" y="357" font-size="9" text-anchor="end" fill="#f0d9b5">e</text><text x="2" y="190" font-size="9" fill="#b58863">4</text><text x="267" y="357" font-size="9" text-anchor="end" fill="#b58863">f</text><text x="2" y="235" font-size="9" fill="#f0d9b5">3</text><text x="312" y="357" font-size="9" text-anchor="end" fill="#f0d9b5">g</text><text x="2" y="280" font-size="9" fill="#b58863">2</text><text x="357" y="357" font-size="9" text-anchor="end" fill="#b58863">h</text><text x="2" y="325" font-size="9" fill="#f0d9b5">1</text><use href="#black-rook" x="315" y="0"/><use href="#black-bishop" x="225" y="0"/><use href="#black-rook" x="135" y="0"/><use href="#black-pawn" x="315" y="45"/><use href="#black-pawn" x="225" y="45"/><use href="#black-queen" x="180" y="45"/><use href="#black-bishop" x="135" y="45"/><use href="#black-king" x="90" y="45"/><use href="#black-pawn" x="45" y="45"/><use href="#black-pawn" x="315" y="90"/><use href="#black-pawn" x="180" y="90"/><use href="#black-knight" x="45" y="90"/><use href="#white-pawn" x="180" y="135"/><use href="#black-pawn" x="135" y="135"/><use href="#white-queen" x="0" y="135"/><use href="#white-pawn" x="135" y="180"/><use href="#black-pawn" x="90" y="180"/><use href="#white-pawn" x="0" y="180"/><use href="#white-pawn" x="315" y="225"/><use href="#white-knight" x="225" y="225"/><use href="#white-bishop" x="135" y="225"/><use href="#white-rook" x="45" y="225"/><use href="#white-pawn" x="270" y="270"/><use href="#white-pawn" x="225" y="270"/><use href="#white-knight" x="180" y="270"/><use href="#white-pawn" x="90" y="270"/><use href="#white-pawn" x="45" y="270"/><use href="#white-king" x="270" y="315"/><use href="#white-rook" x="225" y="315"/><g fill="#d6454a" stroke="#d6454a" opacity=".8"><line x1="22" y1="158" x2="100" y2="235" stroke-width="8" stroke-linecap="round"/><polygon points="112,248 92,243 108,227"/></g><g fill="#2f9e6a" stroke="#2f9e6a" opacity=".8"><line x1="22" y1="158" x2="55" y2="125" stroke-width="8" stroke-linecap="round"/><polygon points="68,112 63,133 47,117"/></g></svg>
-        <figcaption class="annot">
-          <div class="meta"><b>Blunder</b> · middlegame · blitz · 83s left</div>
-          <span class="move">19. <span class="bad">Qc3?</span></span>
-          <span class="chip">#2 → -1.71</span>
-          <span class="chip">missed mate</span>
-          <div class="line">Best was <b class="good">Qxb6+</b> <code>19. Qxb6+ Kb8 20. Qxb7#</code></div>
+        <div class="board-row">
+        <div class="evalbar" aria-hidden="true"><i id="eval-fill"></i></div>
+        <div class="board" id="board">
+        <svg id="hero-board" viewBox="0 0 360 360" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Position before Qc3: White missed Qxb6+ Kb8 Qxb7 mate"><rect width="360" height="360" fill="url(#cb)"/><g class="hl" id="hl"></g><text x="42" y="357" font-size="9" text-anchor="end" fill="#f0d9b5">a</text><text x="2" y="10" font-size="9" fill="#b58863">8</text><text x="87" y="357" font-size="9" text-anchor="end" fill="#b58863">b</text><text x="2" y="55" font-size="9" fill="#f0d9b5">7</text><text x="132" y="357" font-size="9" text-anchor="end" fill="#f0d9b5">c</text><text x="2" y="100" font-size="9" fill="#b58863">6</text><text x="177" y="357" font-size="9" text-anchor="end" fill="#b58863">d</text><text x="2" y="145" font-size="9" fill="#f0d9b5">5</text><text x="222" y="357" font-size="9" text-anchor="end" fill="#f0d9b5">e</text><text x="2" y="190" font-size="9" fill="#b58863">4</text><text x="267" y="357" font-size="9" text-anchor="end" fill="#b58863">f</text><text x="2" y="235" font-size="9" fill="#f0d9b5">3</text><text x="312" y="357" font-size="9" text-anchor="end" fill="#f0d9b5">g</text><text x="2" y="280" font-size="9" fill="#b58863">2</text><text x="357" y="357" font-size="9" text-anchor="end" fill="#b58863">h</text><text x="2" y="325" font-size="9" fill="#f0d9b5">1</text><use href="#black-rook" x="315" y="0"/><use href="#black-bishop" x="225" y="0"/><use href="#black-rook" x="135" y="0"/><use href="#black-pawn" x="315" y="45"/><use href="#black-pawn" x="225" y="45"/><use href="#black-queen" x="180" y="45"/><use href="#black-bishop" x="135" y="45"/><use id="p-bk" href="#black-king" x="90" y="45"/><use id="p-bp" href="#black-pawn" x="45" y="45"/><use href="#black-pawn" x="315" y="90"/><use href="#black-pawn" x="180" y="90"/><use id="p-bn" href="#black-knight" x="45" y="90"/><use href="#white-pawn" x="180" y="135"/><use href="#black-pawn" x="135" y="135"/><use id="p-wq" href="#white-queen" x="0" y="135"/><use href="#white-pawn" x="135" y="180"/><use href="#black-pawn" x="90" y="180"/><use href="#white-pawn" x="0" y="180"/><use href="#white-pawn" x="315" y="225"/><use href="#white-knight" x="225" y="225"/><use href="#white-bishop" x="135" y="225"/><use href="#white-rook" x="45" y="225"/><use href="#white-pawn" x="270" y="270"/><use href="#white-pawn" x="225" y="270"/><use href="#white-knight" x="180" y="270"/><use href="#white-pawn" x="90" y="270"/><use href="#white-pawn" x="45" y="270"/><use href="#white-king" x="270" y="315"/><use href="#white-rook" x="225" y="315"/><g id="arrows"></g><circle id="mate-ring" cx="67.5" cy="22.5" r="20" fill="none" stroke="#d6454a" stroke-width="3"/></svg>
+        <div class="lens" id="lens" aria-hidden="true"><div class="lens__glass"></div><span class="lens__label"></span></div>
+        </div>
+        </div>
+        <figcaption class="annot" id="annot">
+          <div class="meta" id="cap-meta"><b>Blunder</b> · middlegame · blitz · 83s left</div>
+          <span class="move" id="cap-move">19. <span class="bad">Qc3?</span></span>
+          <span id="cap-chips" style="display:contents"><span class="chip">#2 → -1.71</span>
+          <span class="chip">missed mate</span></span>
+          <div class="line">Best was <b class="good">Qxb6+</b> <code id="cap-line"><span>19. Qxb6+</span> <span>Kb8</span> <span>20. Qxb7#</span></code></div>
         </figcaption>
       </figure>
       <div class="float-card" aria-hidden="true">
@@ -209,22 +317,22 @@ footer a{color:var(--muted)}
     <h2>A coach's notes on your last week</h2>
     <p class="intro">Every report is one HTML file you can open anywhere. It focuses on patterns, not on single bad moves.</p>
     <div class="grid4">
-      <div class="card">
+      <div class="card reveal" style="--i:0">
         <div class="icon"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1.5" fill="currentColor"/></svg></div>
         <h3>Recurring problems</h3>
         <p>Three to five patterns ranked by how much they cost you, each with a way to fix it.</p>
       </div>
-      <div class="card">
+      <div class="card reveal" style="--i:1">
         <div class="icon"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M3 15h18M9 3v18M15 3v18"/></svg></div>
         <h3>Your own positions</h3>
         <p>Boards from your games with your move in red and the engine's move in green.</p>
       </div>
-      <div class="card">
+      <div class="card reveal" style="--i:2">
         <div class="icon"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M4 5a2 2 0 0 1 2-2h13v16H6a2 2 0 0 0-2 2z"/><path d="M4 19V5"/></svg></div>
         <h3>Study links</h3>
         <p>Lichess puzzle themes, Lichess practice and Wikipedia pages picked for each problem.</p>
       </div>
-      <div class="card">
+      <div class="card reveal" style="--i:3">
         <div class="icon"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></svg></div>
         <h3>Your numbers</h3>
         <p>Record, accuracy, blunders per game, openings and mistakes by game phase.</p>
@@ -238,7 +346,8 @@ footer a{color:var(--muted)}
     <div class="kicker">How it works</div>
     <h2>Engine first, AI second</h2>
     <p class="intro">Stockfish decides what was a mistake. Claude only groups them and explains them.</p>
-    <div class="steps">
+    <div class="steps reveal">
+      <div class="runner" aria-hidden="true"><svg class="p" viewBox="0 0 45 45"><use href="#white-pawn"/></svg><svg class="q" viewBox="0 0 45 45"><use href="#white-queen"/></svg></div>
       <div class="step"><h3>Fetch</h3><p>Games come from the chess.com Published-Data API. You don't need to log in.</p></div>
       <div class="step"><h3>Analyse</h3><p>Stockfish checks every position. A drop of 20 points in winning chances is a mistake, 30 is a blunder.</p></div>
       <div class="step"><h3>Coach</h3><p>Claude gets the worst mistakes in one request and can only pick themes and positions that exist.</p></div>
@@ -252,7 +361,7 @@ footer a{color:var(--muted)}
     <div class="kicker">Set it up</div>
     <h2>Five minutes with Docker</h2>
     <p class="intro">You need Docker Desktop, git and an <a href="https://console.anthropic.com/">Anthropic API key</a>.</p>
-    <div class="setup">
+    <div class="setup reveal">
       <div class="term">
         <div class="term-head"><i></i><i></i><i></i><span>any OS</span></div>
 <pre><span class="p">$ </span>git clone https://github.com/VladKhomich/chess-digest.git
@@ -277,13 +386,13 @@ footer a{color:var(--muted)}
 
 <section class="block alt">
   <div class="wrap duo">
-    <div class="card">
+    <div class="card reveal">
       <div class="kicker">Publish</div>
       <h3>Your own report site</h3>
       <p>Fork the repo and run <code>chess analyse --week --publish</code>. The first run creates a <code>gh-pages</code> branch, then you point GitHub Pages at it.</p>
       <p>Reports live only on that branch, so your code stays clean. Published pages hide your opponents' usernames and ask search engines not to index them.</p>
     </div>
-    <div class="card">
+    <div class="card reveal" style="--i:1">
       <div class="kicker">Cost</div>
       <h3>Cents, not a subscription</h3>
       <p>Stockfish runs on your machine. Each report makes one Claude Sonnet call.</p>
@@ -294,6 +403,7 @@ footer a{color:var(--muted)}
 
 <section class="cta">
   <div class="wrap">
+    <svg class="hopper" viewBox="0 0 45 45" aria-hidden="true"><use href="#white-knight"/></svg>
     <h2>See what a week of blitz looks like</h2>
     <p>54 games, 187 flagged errors and five patterns worth fixing.</p>
     <div class="buttons">
@@ -309,5 +419,164 @@ footer a{color:var(--muted)}
     <a href="https://github.com/VladKhomich/chess-digest">github.com/VladKhomich/chess-digest</a>
   </div>
 </footer>
+<script>
+(() => {
+  const root = document.documentElement
+  root.classList.add('js')
+  const still = matchMedia('(prefers-reduced-motion: reduce)').matches
+
+  const io = new IntersectionObserver((entries) => {
+    for (const e of entries) if (e.isIntersecting) { e.target.classList.add('in'); io.unobserve(e.target) }
+  }, { threshold: 0.15 })
+  document.querySelectorAll('.reveal').forEach((el) => (still ? el.classList.add('in') : io.observe(el)))
+
+  const $ = (id) => document.getElementById(id)
+  const NS = 'http://www.w3.org/2000/svg'
+  const board = $('board')
+  if (!board) return
+  const P = { wq: $('p-wq'), bn: $('p-bn'), bk: $('p-bk'), bp: $('p-bp') }
+  const HOME = { wq: 'a5', bn: 'b6', bk: 'c7', bp: 'b7' }
+  const arrows = $('arrows'), hl = $('hl'), ring = $('mate-ring'), evalFill = $('eval-fill')
+  const lens = $('lens'), lensLabel = lens.querySelector('.lens__label')
+  const annot = $('annot'), capMeta = $('cap-meta'), capMove = $('cap-move'), capChips = $('cap-chips')
+  const tokens = $('cap-line').children
+
+  const file = (s) => s.charCodeAt(0) - 97
+  const rank = (s) => Number(s[1])
+  const xy = (s) => [file(s) * 45 + 22.5, (8 - rank(s)) * 45 + 22.5]
+  const el = (tag, attrs) => {
+    const n = document.createElementNS(NS, tag)
+    for (const k in attrs) n.setAttribute(k, attrs[k])
+    return n
+  }
+
+  const place = (k, s) => {
+    const [x0, y0] = xy(HOME[k]), [x1, y1] = xy(s)
+    P[k].style.transform = `translate(${x1 - x0}px,${y1 - y0}px)`
+  }
+
+  const arrow = (from, to, color) => {
+    const [x0, y0] = xy(from), [x1, y1] = xy(to)
+    const len = Math.hypot(x1 - x0, y1 - y0), ux = (x1 - x0) / len, uy = (y1 - y0) / len
+    const tx = x1 - ux * 4, ty = y1 - uy * 4, bx = tx - ux * 18, by = ty - uy * 18
+    const g = el('g', { class: 'arrow' })
+    g.style.color = color
+    g.append(
+      el('line', { x1: x0 + ux * 10, y1: y0 + uy * 10, x2: bx + ux * 2, y2: by + uy * 2, pathLength: 1 }),
+      el('polygon', { points: `${tx},${ty} ${bx - uy * 11},${by + ux * 11} ${bx + uy * 11},${by - ux * 11}` }),
+    )
+    arrows.append(g)
+    g.getBoundingClientRect()
+    g.classList.add('on')
+    return g
+  }
+
+  const mark = (...squares) => {
+    hl.replaceChildren(...squares.map((s) => { const [x, y] = xy(s); return el('rect', { x: x - 22.5, y: y - 22.5, width: 45, height: 45 }) }))
+  }
+
+  const look = (s, text, tone) => {
+    lens.classList.add('swap')
+    lens.style.left = `${file(s) * 12.5 + 6.25}%`
+    lens.style.top = `${(8 - rank(s)) * 12.5 + 6.25}%`
+    setTimeout(() => {
+      lensLabel.textContent = text
+      lens.classList.toggle('bad', tone === 'bad')
+      lens.classList.toggle('below', rank(s) >= 7)
+      lens.classList.toggle('start', file(s) < 2)
+      lens.classList.remove('swap')
+    }, 450)
+  }
+
+  const caption = (meta, move, chips, tok = -1) => {
+    annot.classList.add('swap')
+    setTimeout(() => {
+      capMeta.innerHTML = meta
+      capMove.innerHTML = move
+      capChips.innerHTML = chips.map((c) => `<span class="chip">${c}</span>`).join(' ')
+      ;[...tokens].forEach((t, i) => t.classList.toggle('cur', i === tok))
+      annot.classList.remove('swap')
+    }, 180)
+  }
+
+  const setEval = (pct) => (evalFill.style.height = `${pct}%`)
+
+  if (still) {
+    arrow('a5', 'c3', '#d6454a')
+    arrow('a5', 'b6', '#2f9e6a')
+    return
+  }
+
+  let hovered = false, offscreen = false
+  board.addEventListener('pointerenter', () => (hovered = true))
+  board.addEventListener('pointerleave', () => (hovered = false))
+  new IntersectionObserver(([e]) => (offscreen = !e.isIntersecting)).observe(board)
+
+  const wait = (ms) => new Promise((done) => {
+    let last = performance.now()
+    const tick = () => {
+      const now = performance.now()
+      if (!hovered && !offscreen && !document.hidden) ms -= now - last
+      last = now
+      ms <= 0 ? done() : setTimeout(tick, 50)
+    }
+    setTimeout(tick, 50)
+  })
+
+  const RED = '#d6454a', GREEN = '#2f9e6a'
+  const META = 'middlegame · blitz · 83s left'
+
+  const reset = () => {
+    for (const k in P) { P[k].style.transform = ''; P[k].classList.remove('gone') }
+    for (const a of arrows.children) a.classList.add('off')
+    setTimeout(() => arrows.replaceChildren(), 400)
+    hl.replaceChildren()
+    ring.classList.remove('on')
+    setEval(92)
+  }
+
+  const play = async () => {
+    for (;;) {
+      reset()
+      caption(`Your move · ${META}`, '19. <span class="muted">…</span>', ['White to move', 'mate in 2 on the board'])
+      look('a5', 'Queen to move', 'good')
+      await wait(2400)
+
+      const blunder = arrow('a5', 'c3', RED)
+      await wait(500)
+      place('wq', 'c3'); mark('a5', 'c3'); setEval(36)
+      look('c3', 'Qc3?  −1.71', 'bad')
+      caption(`<b>Blunder</b> · ${META}`, '19. <span class="bad">Qc3?</span>', ['#2 → −1.71', 'missed mate'])
+      await wait(2800)
+
+      P.wq.style.transform = ''; blunder.classList.add('off'); hl.replaceChildren(); setEval(92)
+      look('b6', 'Best: Qxb6+', 'good')
+      caption(`<b style="color:var(--accent)">Engine line</b> · ${META}`, '19. <span class="muted">rewind…</span>', ['what Stockfish wanted'])
+      await wait(1200)
+
+      arrow('a5', 'b6', GREEN)
+      await wait(500)
+      place('wq', 'b6'); P.bn.classList.add('gone'); mark('a5', 'b6'); setEval(97)
+      caption(`<b style="color:var(--accent)">Engine line</b> · ${META}`, '19. <span class="good">Qxb6+</span>', ['best move', 'check'], 0)
+      await wait(1700)
+
+      look('b8', 'Kb8, forced', 'good')
+      place('bk', 'b8'); mark('c7', 'b8'); setEval(98)
+      caption(`<b style="color:var(--accent)">Engine line</b> · ${META}`, '19… <span class="muted">Kb8</span>', ['only move'], 1)
+      await wait(1700)
+
+      arrow('b6', 'b7', GREEN)
+      await wait(500)
+      place('wq', 'b7'); P.bp.classList.add('gone'); mark('b6', 'b7'); setEval(100)
+      ring.classList.add('on')
+      look('b7', 'Qxb7#', 'good')
+      caption(`<b style="color:var(--accent)">Checkmate</b> · ${META}`, '20. <span class="good">Qxb7#</span>', ['1-0', 'the move you skipped'], 2)
+      await wait(3600)
+    }
+  }
+
+  setTimeout(() => { lens.classList.add('on'); play() }, 700)
+})()
+</script>
 </body>
 </html>
